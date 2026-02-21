@@ -19,6 +19,7 @@
 | --- | --- |
 | 의존성 설치 | `pnpm install` |
 | 개발 서버 (dev) | `pnpm serve:dev` |
+| 개발 서버 (mock) | `pnpm serve:mock` |
 | 개발 서버 (qa) | `pnpm serve:qa` |
 | 개발 서버 (live) | `pnpm serve:live` |
 | 빌드 (dev) | `pnpm build:dev` |
@@ -27,6 +28,8 @@
 | 빌드 결과 실행 | `pnpm preview` |
 | 빌드 후 바로 실행 | `pnpm build:preview` |
 | 테스트 | `pnpm test` |
+| 테스트 (watch) | `pnpm test:watch` |
 | 타입체크 | `pnpm typecheck` |
 | 린트 | `pnpm lint` |
+| 린트 자동수정 | `pnpm lint:fix` |
 | 포맷 | `pnpm format` |
