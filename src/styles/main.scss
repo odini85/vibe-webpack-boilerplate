@@ -1,0 +1,183 @@
+@use 'sass:color';
+
+// ── 웹폰트 self-hosting ────────────────────────────────────────────────────────
+// webpack이 아래 url() 경로를 추적해 assets/fonts/ 로 출력하고 해시 파일명으로 치환합니다.
+// font-display: swap — 폰트 로드 전 fallback 폰트를 즉시 표시해 CLS(누적 레이아웃 이동)를 줄입니다.
+@font-face {
+  font-family: 'Inter';
+  src:
+    url('../assets/fonts/Inter-Regular.woff2') format('woff2'),
+    url('../assets/fonts/Inter-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #0f172a;
+  --panel: #111827;
+  --accent: #38bdf8;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 20% 20%, color.scale(#1e293b, $lightness: 6%), var(--bg));
+  // 자체 호스팅 Inter 폰트 → 로드 실패 시 system-ui 계열로 자동 fallback
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.app {
+  background: var(--panel);
+  border: 1px solid color.scale(#1f2937, $lightness: -10%);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  max-width: 560px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(24px, 4vw, 32px);
+  letter-spacing: -0.02em;
+}
+
+p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.counter-value {
+  font-size: clamp(32px, 6vw, 48px);
+  font-weight: 700;
+  margin: 8px 0 16px;
+}
+
+button {
+  background: var(--accent);
+  color: #0b1729;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 10px 30px rgba(56, 189, 248, 0.25);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 38px rgba(56, 189, 248, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
+  }
+}
+
+// ── 비디오 데모 영역 ──────────────────────────────────────────────────────────
+.video-demo {
+  margin-top: 24px;
+  border-top: 1px solid color.scale(#1f2937, $lightness: 10%);
+  padding-top: 20px;
+
+  p {
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+}
+
+.demo-video {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 8px;
+  background: #0b1729;
+  // 비디오 로드 전 영역 확보 (16:9 비율)
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+// ── Mock API 데모 영역 ─────────────────────────────────────────────────────
+.api-demo {
+  margin-top: 24px;
+  border-top: 1px solid color.scale(#1f2937, $lightness: 10%);
+  padding-top: 20px;
+  text-align: left;
+}
+
+.user-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  font-size: 14px;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    button {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      background: transparent;
+      color: #f87171;
+      border: 1px solid #f87171;
+      border-radius: 6px;
+      box-shadow: none;
+
+      &:hover {
+        background: rgba(248, 113, 113, 0.12);
+        transform: none;
+        box-shadow: none;
+      }
+
+      &:active {
+        transform: none;
+      }
+    }
+  }
+}
+
+.add-user-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  input {
+    flex: 1;
+    min-width: 120px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 14px;
+
+    &::placeholder {
+      color: var(--muted);
+    }
+  }
+
+  button {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+}
