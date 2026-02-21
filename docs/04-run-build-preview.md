@@ -18,16 +18,14 @@ pnpm install
 
 각 스크립트는 `APP_ENV` 값만 다르고 나머지 동작은 동일합니다.
 
-| 스크립트           | APP_ENV | 로드되는 env 파일    | Mock API |
-| ------------------ | ------- | -------------------- | -------- |
-| `pnpm serve:dev`   | `dev`   | `.env` → `.env.dev`  | 비활성   |
-| `pnpm serve:mock`  | `dev`   | `.env` → `.env.dev`  | **활성** |
-| `pnpm serve:qa`    | `qa`    | `.env` → `.env.qa`   | 비활성   |
-| `pnpm serve:live`  | `live`  | `.env` → `.env.live` | 비활성   |
+| 스크립트           | APP_ENV | 로드되는 env 파일    |
+| ------------------ | ------- | -------------------- |
+| `pnpm serve:dev`   | `dev`   | `.env` → `.env.dev`  |
+| `pnpm serve:qa`    | `qa`    | `.env` → `.env.qa`   |
+| `pnpm serve:live`  | `live`  | `.env` → `.env.live` |
 
 ```bash
-pnpm serve:dev    # 일반 개발 서버
-pnpm serve:mock   # Mock API 포함 개발 서버
+pnpm serve:dev
 pnpm serve:qa
 pnpm serve:live
 ```
@@ -35,83 +33,6 @@ pnpm serve:live
 브라우저 접속:
 
 - `http://localhost:5173`
-
----
-
-## 3) Mock API 미들웨어
-
-실제 API 서버가 없거나, MSW 를 사용할 수 없는 환경에서 `/api/*` 요청을 가로채
-로컬 핸들러가 JSON 응답을 반환합니다.
-
-### 동작 원리
-
-webpack-dev-server 의 `setupMiddlewares` 훅에 Express 미들웨어를 등록합니다.
-`USE_MOCK=true` 환경변수가 설정된 경우에만 활성화됩니다.
-
-```
-브라우저 → http://localhost:5173/api/users
-              ↓
-      webpack-dev-server (Express)
-              ↓
-      setupMiddlewares 훅에서 등록된 핸들러가 먼저 확인
-              ↓
-      매칭 → 핸들러가 JSON 응답 반환 (실제 서버 요청 없음)
-      미매칭 → 다음 미들웨어로 전달 (프록시 등)
-```
-
-### 실행
-
-```bash
-pnpm serve:mock
-# 내부적으로: cross-env APP_ENV=dev USE_MOCK=true webpack serve --config webpack.dev.js
-```
-
-서버 시작 시 터미널에 등록된 핸들러 목록이 출력됩니다:
-
-```
-[mock-api] Mock API 활성화
-  [mock-api] GET    /api/users  (200ms)
-  [mock-api] GET    /api/users/:id  (150ms)
-  [mock-api] POST   /api/users  (300ms)
-  [mock-api] DELETE /api/users/:id  (200ms)
-```
-
-### 핸들러 추가
-
-`scripts/mock-api.mjs` 의 `handlers` 배열에 항목을 추가합니다.
-
-```js
-// scripts/mock-api.mjs — handlers 배열
-{
-  method: 'GET',
-  path: '/api/products',
-  delay: 200,            // 지연 ms (생략 가능)
-  handler(req, res) {
-    res.json([
-      { id: 1, name: '상품 A', price: 9900 },
-      { id: 2, name: '상품 B', price: 19900 },
-    ]);
-  },
-},
-```
-
-Express 라우팅 문법을 그대로 사용합니다:
-
-| 기능              | 예시                              |
-| ----------------- | --------------------------------- |
-| 경로 파라미터     | `/api/users/:id` → `req.params.id` |
-| 쿼리스트링        | `/api/users?role=admin` → `req.query.role` |
-| 요청 바디 (POST)  | `req.body.name` (JSON 자동 파싱)  |
-| 상태 코드         | `res.status(404).json({ error: '...' })` |
-| 응답 지연         | `delay` 필드로 네트워크 지연 시뮬레이션 |
-
-### 기존 방식과 비교
-
-| 방식 | 장점 | 단점 |
-| ---- | ---- | ---- |
-| **Mock API 미들웨어** (이 방법) | 별도 패키지 없음, 서버 사이드에서 처리 | 개발 서버 전용 (빌드에 포함 안 됨) |
-| **MSW** | 브라우저/Node 모두 지원, Service Worker | 패키지 설치 필요, SW 등록 절차 있음 |
-| **json-server** | 파일 하나로 REST API 완성 | 별도 프로세스 실행 필요 |
 
 ---
 

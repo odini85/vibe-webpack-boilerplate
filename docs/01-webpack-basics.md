@@ -323,6 +323,64 @@ new webpack.ProgressPlugin({ percentBy: 'entries' });
 
 ---
 
+### 로더 vs 플러그인 — 핵심 차이
+
+둘 다 webpack을 확장하는 도구지만 **동작 시점과 대상**이 완전히 다릅니다.
+
+#### 한 문장 정의
+
+- **로더**: "이 파일 형식을 webpack이 이해할 수 있는 형태로 변환해줘"
+- **플러그인**: "빌드 과정의 특정 시점에 이 기능을 실행해줘"
+
+#### 비교표
+
+| 구분 | 로더 | 플러그인 |
+| ---- | ---- | -------- |
+| 동작 단위 | **파일 1개** | **빌드 전체** |
+| 동작 시점 | 모듈 해석 단계 (`import` 추적 중) | 빌드 생명주기 어느 시점이든 |
+| 역할 | 파일 형식 변환 (TS→JS, SCSS→CSS) | HTML 생성, env 치환, CSS 추출, 진행률 출력 등 |
+| 적용 방법 | `module.rules`에 선언 | `plugins` 배열에 인스턴스 추가 |
+| 반환값 | 변환된 소스 코드 | 없음 (빌드 결과물에 직접 작용) |
+| 예시 | `ts-loader`, `css-loader`, `sass-loader` | `HtmlWebpackPlugin`, `DefinePlugin`, `MiniCssExtractPlugin` |
+
+#### 빌드 파이프라인 안에서의 위치
+
+```
+[entry 파일 발견]
+       ↓
+[로더 실행 구간] ← 로더는 오직 이 구간에서만 동작
+  import된 .ts  → ts-loader          → JS 모듈
+  import된 .scss → sass-loader
+                   → css-loader
+                   → style-loader     → DOM 주입
+  import된 .mp4  → asset/resource    → URL 문자열
+       ↓
+[모듈 그래프 완성 — 모든 import 해석 완료]
+       ↓
+┌─────────────────────────────────────────────┐
+│ [플러그인 실행 가능 구간]                    │
+│  ├ 빌드 시작 직후                           │
+│  ├ 모듈 처리 완료 후 (DefinePlugin 치환)    │
+│  ├ 청크 최적화 후 (MiniCssExtractPlugin)    │
+│  └ 파일 출력 직전 (HtmlWebpackPlugin)       │
+└─────────────────────────────────────────────┘
+       ↓
+[dist/ 파일 출력]
+```
+
+#### 왜 헷갈리는가 — MiniCssExtractPlugin
+
+`MiniCssExtractPlugin`은 **로더**(`MiniCssExtractPlugin.loader`)와 **플러그인**(`new MiniCssExtractPlugin()`) 두 가지가 세트로 동작합니다.
+
+```
+로더 역할:  CSS 모듈 처리 중 "이 CSS를 파일로 뽑아낼 것" 이라고 표시
+플러그인 역할: 로더가 표시해둔 CSS를 모아 실제 .css 파일로 기록
+```
+
+로더만 등록하고 플러그인 인스턴스를 빠뜨리거나, 반대로 플러그인만 넣고 로더를 빠뜨리면 모두 빌드 오류가 발생합니다.
+
+---
+
 ### Dev Server
 
 로컬 개발 서버입니다(`webpack-dev-server` 패키지).

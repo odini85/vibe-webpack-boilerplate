@@ -581,3 +581,226 @@ export default merge(common, {
 | 배열 (`rules`, `plugins`)  | 이어 붙임 (concat) |
 | 객체 (`output`, `resolve`) | 재귀적으로 병합    |
 | 스칼라 (`mode`, `devtool`) | 후자가 덮어씀      |
+
+---
+
+## optimization
+
+무엇인가:
+
+- 번들 결과물의 크기·캐시 효율·청크 분리를 제어하는 설정 그룹입니다.
+- 가장 자주 쓰이는 하위 옵션은 `splitChunks`(청크 분리)와 `runtimeChunk`(런타임 분리)입니다.
+
+왜 필요한가:
+
+- webpack 기본 설정은 모든 코드를 하나의 JS 파일로 번들합니다.
+- 앱이 커질수록 초기 로딩 파일이 수 MB에 달하고, 코드 한 줄 수정만으로 React·lodash 같은 라이브러리 캐시까지 무효화됩니다.
+- `optimization`으로 라이브러리를 별도 파일로 분리하면 캐시 수명이 늘어나고 사용자가 내려받는 변경 파일이 최소화됩니다.
+
+코드 스플리팅 전/후 비교:
+
+```
+[분리 전]
+dist/assets/js/main.a1b2.js  (3MB — 앱 코드 + React + 라이브러리 전부)
+
+[분리 후]
+dist/assets/js/runtime.js           (2KB  — 청크 로딩 조율)
+dist/assets/js/react-vendor.c3d4.js (150KB — React 계열, 버전 변경 시만 갱신)
+dist/assets/js/vendor.e5f6.js       (200KB — 기타 라이브러리)
+dist/assets/js/main.a1b2.js         (50KB  — 앱 코드만)
+```
+
+---
+
+### optimization.splitChunks
+
+무엇인가:
+
+- 여러 청크에서 공통으로 사용되는 모듈을 자동 감지해 별도 파일로 추출합니다.
+- webpack 5 내장 기능으로, 별도 플러그인 설치 없이 설정만으로 동작합니다.
+
+#### chunks — 분리 대상 범위
+
+| 값 | 분리 대상 | 언제 사용 |
+| --- | --- | --- |
+| `'async'` **(기본값)** | 동적 `import()`로 생성된 청크만 | 동적 import 위주 SPA |
+| `'initial'` | 정적 `import`로 생성된 초기 청크만 | 엔트리 분리가 주목적일 때 |
+| `'all'` | 정적 + 동적 import 모두 | **대부분의 프로덕션 설정에서 권장** |
+
+> **자주 헷갈림**: 기본값이 `'async'`이므로, React처럼 정적으로 import하는 라이브러리는
+> `chunks: 'all'`을 명시하지 않으면 분리되지 않습니다.
+
+#### 주요 하위 옵션
+
+| 옵션 | 기본값 | 역할 |
+| ---- | ------ | ---- |
+| `chunks` | `'async'` | 분리 범위 |
+| `minSize` | `20000` | 이 크기(바이트) 미만은 분리하지 않음 |
+| `maxSize` | `0` | 초과 시 추가 분리 시도. 0 = 제한 없음 |
+| `minChunks` | `1` | 이 횟수 이상 참조된 모듈만 분리 |
+| `maxInitialRequests` | `30` | 초기 로드 시 최대 병렬 요청 수 |
+| `priority` | `0` | cacheGroups 간 우선순위. 높을수록 먼저 적용 |
+| `reuseExistingChunk` | `true` | 이미 분리된 청크가 있으면 재사용 |
+
+#### cacheGroups — 세밀한 분리 제어
+
+어떤 모듈을 어느 청크로 묶을지 직접 정의합니다.
+
+```js
+// webpack.prod.js
+optimization: {
+  splitChunks: {
+    chunks: 'all',
+    cacheGroups: {
+      // React 계열 — 가장 높은 priority 로 먼저 처리
+      react: {
+        test: /[\\/]node_modules[\\/](react|react-dom|react-router[-\w]*)[\\/]/,
+        name: 'react-vendor',
+        chunks: 'all',
+        priority: 30,   // vendor(20)보다 높아야 react가 vendor에 흡수되지 않음
+      },
+      // 나머지 node_modules
+      vendor: {
+        test: /[\\/]node_modules[\\/]/,
+        name: 'vendor',
+        chunks: 'all',
+        priority: 20,
+      },
+      // 앱 코드 중 2곳 이상에서 공유하는 모듈
+      common: {
+        name: 'common',
+        minChunks: 2,
+        chunks: 'all',
+        priority: 10,
+        reuseExistingChunk: true,
+      },
+    },
+  },
+},
+```
+
+> `priority`가 중요한 이유: React는 `node_modules`에 있으므로 `vendor` 그룹에도 매칭됩니다.
+> react 그룹의 priority(30)가 vendor(20)보다 높아야 `react-vendor` 청크로 분리됩니다.
+
+---
+
+### optimization.runtimeChunk
+
+무엇인가:
+
+- webpack 런타임(청크 로딩 조율 코드)을 별도 파일로 분리합니다.
+
+왜 필요한가:
+
+- `runtimeChunk`가 없으면 각 청크가 자체 런타임을 포함합니다.
+- 여러 청크 간 모듈 공유 테이블이 따로 유지되어 로딩 순서 보장이 어렵습니다.
+- `'single'`로 설정하면 단일 런타임이 모든 청크의 로딩을 조율하고, `HtmlWebpackPlugin`이 올바른 순서로 `<script>` 태그를 자동 삽입합니다.
+
+```js
+optimization: {
+  runtimeChunk: 'single',  // 모든 엔트리가 하나의 런타임 청크를 공유
+  splitChunks: { ... },
+},
+```
+
+| 설정 | 동작 |
+| ---- | ---- |
+| 미설정 (기본) | 각 청크에 런타임 포함. 청크 공유 테이블이 분산됨 |
+| `'single'` | 단일 runtime.js 생성. 모든 청크 로딩을 하나의 런타임이 관리 |
+| `'multiple'` | 엔트리별 런타임 분리. 멀티 엔트리 앱에서 독립적 런타임이 필요할 때 |
+
+---
+
+### React 분리 시 발생하는 오류와 해결 방법
+
+React를 별도 청크로 분리한 후 아래 오류가 발생하는 경우의 원인과 해결책입니다.
+
+```
+Uncaught ReferenceError: React is not defined
+Uncaught Error: Invalid hook call.
+```
+
+#### 원인 1 — `chunks: 'all'` 누락
+
+```js
+// ❌ chunks 생략 → 기본값 'async' 적용
+//    정적 import된 React는 분리 안 됨 → main 청크와 동적 청크에 React가 각각 존재
+react: {
+  test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+  name: 'react-vendor',
+  // chunks 없음
+},
+
+// ✅ 해결: chunks: 'all' 명시
+react: {
+  test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+  name: 'react-vendor',
+  chunks: 'all',
+  priority: 30,
+},
+```
+
+#### 원인 2 — `runtimeChunk` 미설정으로 인한 청크 로딩 순서 문제
+
+```js
+// ✅ 해결: runtimeChunk: 'single' 추가
+optimization: {
+  runtimeChunk: 'single',
+  splitChunks: { ... },
+},
+```
+
+`runtimeChunk: 'single'`을 추가하면 `HtmlWebpackPlugin`이 아래 순서로 `<script>` 태그를 자동 삽입합니다.
+
+```html
+<script src="runtime.js"></script>       <!-- 1. 런타임 먼저 -->
+<script src="react-vendor.js"></script>  <!-- 2. React -->
+<script src="vendor.js"></script>        <!-- 3. 기타 라이브러리 -->
+<script src="main.js"></script>          <!-- 4. 앱 코드 마지막 -->
+```
+
+#### 원인 3 — React 인스턴스 중복 (Invalid hook call)
+
+UI 라이브러리가 내부에 React를 번들했거나, `node_modules` 경로 구조가 달라 React 인스턴스가 두 개 생기는 경우입니다.
+
+```js
+// ✅ 해결: resolve.alias 로 모든 패키지가 동일한 React를 참조하도록 강제
+// webpack.common.js
+resolve: {
+  extensions: ['.ts', '.tsx', '.js'],
+  alias: {
+    react: path.resolve(__dirname, 'node_modules/react'),
+    'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+  },
+},
+```
+
+---
+
+### 프로덕션 설정 예시
+
+```js
+// webpack.prod.js
+optimization: {
+  runtimeChunk: 'single',
+  splitChunks: {
+    chunks: 'all',
+    minSize: 20_000,
+    maxInitialRequests: 10,
+    cacheGroups: {
+      react: {
+        test: /[\\/]node_modules[\\/](react|react-dom|react-router[-\w]*)[\\/]/,
+        name: 'react-vendor',
+        chunks: 'all',
+        priority: 30,
+      },
+      vendor: {
+        test: /[\\/]node_modules[\\/]/,
+        name: 'vendor',
+        chunks: 'all',
+        priority: 20,
+      },
+    },
+  },
+},
+```

@@ -7,11 +7,13 @@
    - 번들링, 로더, 플러그인, 개발 서버의 기본 개념
 2. `docs/02-webpack-options.md`
    - webpack 핵심 옵션(entry, output, resolve, module.rules, plugins, mode, devtool, devServer) 설명
+   - `optimization.splitChunks` 옵션별 동작 차이 (`chunks`, `minSize`, `cacheGroups`, `priority` 등)
+   - `runtimeChunk: 'single'`이 필요한 이유
+   - React를 별도 청크로 분리했을 때 발생하는 오류 3가지 원인과 해결 방법
 3. `docs/03-project-config-walkthrough.md`
    - 예시 프로젝트의 `webpack.common.js`, `webpack.dev.js`, `webpack.prod.js`를 기준으로 실제 동작 해설
 4. `docs/04-run-build-preview.md`
    - 실행/빌드/미리보기 절차
-   - Mock API 미들웨어 (`pnpm serve:mock`, `scripts/mock-api.mjs`)
    - 환경변수 주입 방법
    - 자주 만나는 오류와 해결 방법
 5. `docs/05-ci-cd-env.md`

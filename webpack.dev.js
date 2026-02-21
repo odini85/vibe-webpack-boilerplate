@@ -27,11 +27,13 @@ export default merge(common, {
   // 에러·경고와 빌드 완료 메시지만 터미널에 출력
   stats: 'minimal',
 
+  // 로더·플러그인 내부(인프라) 로그 출력 수준 제어
   infrastructureLogging: {
     // 로더·플러그인 내부 로그를 info 레벨까지 출력
     level: 'info',
   },
 
+  // 개발 전용 출력 설정 — common.output 을 부분 override
   output: {
     // 개발 중 가독성을 위해 contenthash 없이 엔트리명만 사용
     filename: 'assets/js/[name].js',
@@ -39,6 +41,7 @@ export default merge(common, {
     clean: true,
   },
 
+  // webpack-dev-server 로컬 개발 서버 설정
   devServer: {
     // 빌드 산출물을 정적 파일로 제공할 디렉터리
     static: path.join(process.cwd(), 'dist'),
@@ -49,6 +52,7 @@ export default merge(common, {
     // 서버 시작 시 브라우저 자동 실행 비활성화
     open: false,
 
+    // 브라우저(클라이언트) 측 HMR·오버레이 동작 설정
     client: {
       // 컴파일 에러를 브라우저 화면에 반투명 오버레이로 표시
       overlay: true,
@@ -58,6 +62,7 @@ export default merge(common, {
       progress: true,
     },
 
+    // webpack-dev-middleware 단계의 번들 통계 출력 제어
     devMiddleware: {
       // 미들웨어 단계 번들 통계를 최소한으로만 출력
       stats: 'minimal',
@@ -75,6 +80,7 @@ export default merge(common, {
     },
   },
 
+  // 개발 전용 플러그인 — common.plugins 에 추가로 병합됨
   plugins: [
     // 터미널에 0–100% 빌드 진행률을 실시간으로 출력
     new webpack.ProgressPlugin({
@@ -83,12 +89,14 @@ export default merge(common, {
     }),
   ],
 
+  // 개발 전용 파일 변환 규칙 — common.module.rules 에 추가로 병합됨
   module: {
     rules: [
       {
         // sass-loader → css-loader → style-loader 순으로 파이프라인 실행
         // style-loader 가 최종 CSS 를 <style> 태그로 DOM 에 주입해 HMR 즉시 반영
         test: /\.s?css$/i,
+        // 오른쪽부터 순차 실행: sass-loader(SCSS→CSS) → css-loader(url/import 해석) → style-loader(DOM 주입)
         use: ['style-loader', 'css-loader', 'sass-loader'],
       },
     ],
