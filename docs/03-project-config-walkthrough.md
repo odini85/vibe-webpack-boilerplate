@@ -155,7 +155,7 @@ resolve: { extensions: ['.ts', '.tsx', '.js'] }
 
 ```js
 // 규칙 1: TypeScript
-{ test: /\.tsx?$/, exclude: /node_modules/, use: 'ts-loader' }
+{ test: /\.tsx?$/, exclude: /node_modules/, use: ['babel-loader', 'ts-loader'] }
 
 // 규칙 2: 이미지
 { test: /\.(png|jpe?g|gif|svg)$/i, type: 'asset/resource' }
@@ -175,7 +175,7 @@ resolve: { extensions: ['.ts', '.tsx', '.js'] }
 }
 ```
 
-- `ts-loader`: TypeScript → JavaScript 트랜스파일. `tsconfig.json`을 함께 읽습니다.
+- `ts-loader` + `babel-loader`: ts-loader가 TypeScript → ES2015 JS로 변환하고, babel-loader가 ES5 다운컴파일과 core-js 폴리필 주입을 담당합니다. 자세한 내용은 아래 섹션 6을 참고하세요.
 - 이미지 `asset/resource`: 별도 파일 출력, `import` 반환값은 URL 문자열.
 - 웹폰트 `asset/resource`: `generator.filename`으로 `assets/fonts/`에 분리 출력. CSS/SCSS `@font-face`에서 참조합니다.
 - 비디오 `asset/resource`: `mp4`/`webm`/`ogg`를 `assets/media/`에 출력. TypeScript `import` 시 URL 문자열로 반환되어 `<video src>`에 바로 사용 가능합니다.
@@ -328,6 +328,134 @@ new MiniCssExtractPlugin({
 ---
 
 ## 5) 환경별 실행 흐름 요약
+
+---
+
+## 6) Babel + IE11 레거시 브라우저 지원
+
+### 왜 Babel이 필요한가
+
+webpack + ts-loader 기본 설정은 최신 브라우저를 대상으로 모던 JS(ES2015)를 그대로 출력합니다.
+IE11은 Arrow function, `const`/`let`, Promise, Symbol, Array.from 같은 문법과 API를 지원하지 않으므로,
+Babel이 이를 ES5로 다운컴파일하고 `core-js` 폴리필을 자동 주입해야 합니다.
+
+### 트랜스파일 파이프라인
+
+```
+.ts / .tsx
+  → ts-loader      (TypeScript 타입 검사 + TS → ES2015 JS 변환)
+  → babel-loader   (@babel/preset-env: ES2015 → ES5 다운컴파일 + core-js 폴리필 주입)
+  → webpack 번들
+```
+
+### 변경 파일 목록
+
+| 파일 | 변경 내용 |
+| ---- | --------- |
+| `webpack.common.js` | `target: ['web', 'es5']` 추가, TS 규칙 `use` 배열로 변경 |
+| `tsconfig.json` | `target: ES2020 → ES2015`, `useDefineForClassFields: false` |
+| `.browserslistrc` | `ie 11` 추가 |
+| `babel.config.json` | 신규 생성 |
+
+---
+
+### 1. webpack.common.js — target + module.rules
+
+```js
+export default {
+  // webpack 런타임 자체도 ES5로 생성 — IE11에서 청크 로딩 코드가 실행되려면 필수
+  target: ['web', 'es5'],
+
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        exclude: /node_modules/,
+        // 오른쪽부터 실행: ts-loader(TS→ES2015) → babel-loader(ES5 + 폴리필)
+        use: ['babel-loader', 'ts-loader'],
+      },
+    ],
+  },
+};
+```
+
+> `target: ['web', 'es5']`를 생략하면 webpack 런타임 코드(청크 로딩 등)가 Arrow function, `const` 같은 ES2015+ 구문을 포함한 채로 출력됩니다.
+> Babel은 앱 소스 코드만 변환하므로, webpack 런타임은 반드시 `target`으로 별도 제어해야 합니다.
+
+---
+
+### 2. tsconfig.json — target 변경
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "useDefineForClassFields": false
+  }
+}
+```
+
+| 항목 | 변경 전 | 변경 후 | 이유 |
+| ---- | ------- | ------- | ---- |
+| `target` | `ES2020` | `ES2015` | ts-loader는 타입 제거·ES2015 변환만 담당. Babel이 ES5 다운컴파일 처리 |
+| `useDefineForClassFields` | `true` | `false` | ES2020 방식 class field(`Object.defineProperty`)를 비활성화해 Babel의 class 변환과 충돌 방지 |
+
+> `lib: ["ES2020", "DOM"]`은 유지합니다. `lib`는 타입 선언에만 영향을 주며 출력 문법(`target`)과 독립적입니다.
+
+---
+
+### 3. babel.config.json — @babel/preset-env
+
+```json
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "useBuiltIns": "usage",
+        "corejs": 3
+      }
+    ]
+  ]
+}
+```
+
+| 옵션 | 값 | 설명 |
+| ---- | -- | ---- |
+| `useBuiltIns` | `"usage"` | 각 파일에서 실제로 사용한 기능만 폴리필 자동 주입. 번들 크기 최소화 |
+| `corejs` | `3` | 폴리필 소스로 core-js v3 사용 |
+| `targets` | *(생략)* | `.browserslistrc`를 자동으로 읽어 대상 브라우저 결정 |
+
+> `useBuiltIns: 'usage'`를 사용하면 엔트리 파일에 `import 'core-js'`를 수동으로 추가할 필요가 없습니다.
+
+---
+
+### 4. .browserslistrc — ie 11 추가
+
+```
+> 0.5%
+last 2 versions
+not dead
+not op_mini all
+ie 11
+```
+
+`@babel/preset-env`는 이 파일을 자동으로 읽어 필요한 변환과 폴리필 범위를 결정합니다.
+
+---
+
+### fetch 폴리필 주의사항
+
+`fetch` API는 `core-js` 범위 밖입니다. IE11 환경에서 `fetch`를 사용한다면 별도 폴리필이 필요합니다.
+
+```bash
+pnpm add -D whatwg-fetch
+```
+
+```ts
+// src/index.ts — 엔트리 파일 최상단에 추가
+import 'whatwg-fetch';
+```
 
 ```
 pnpm serve:dev

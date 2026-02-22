@@ -12,6 +12,7 @@
    - React를 별도 청크로 분리했을 때 발생하는 오류 3가지 원인과 해결 방법
 3. `docs/03-project-config-walkthrough.md`
    - 예시 프로젝트의 `webpack.common.js`, `webpack.dev.js`, `webpack.prod.js`를 기준으로 실제 동작 해설
+   - Babel + IE11 레거시 브라우저 지원 설정 (`babel-loader`, `@babel/preset-env`, `core-js`, `target: ['web', 'es5']`)
 4. `docs/04-run-build-preview.md`
    - 실행/빌드/미리보기 절차
    - 환경변수 주입 방법

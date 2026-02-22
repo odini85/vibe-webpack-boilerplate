@@ -48,6 +48,9 @@ const defineEnv = Object.fromEntries(
 const { DefinePlugin } = webpack;
 
 export default {
+  // IE11 포함 구형 브라우저 지원 — webpack 런타임 자체도 ES5 코드로 생성
+  target: ['web', 'es5'],
+
   // 의존성 그래프 탐색 시작 파일 (TypeScript 엔트리)
   entry: './src/index.ts',
 
@@ -71,12 +74,12 @@ export default {
   module: {
     rules: [
       {
-        // .ts / .tsx → ts-loader 로 JavaScript 트랜스파일
+        // .ts / .tsx → ts-loader(TS→ES2015) → babel-loader(ES2015→ES5 + 폴리필) 순서로 파이프라인 실행
         test: /\.tsx?$/,
-        // 이미 컴파일된 JS 가 있는 node_modules 는 ts-loader 처리에서 제외
+        // 이미 컴파일된 JS 가 있는 node_modules 는 처리에서 제외
         exclude: /node_modules/,
-        // ts-loader: tsconfig.json 설정을 읽어 TypeScript → JavaScript 변환
-        use: 'ts-loader',
+        // 오른쪽부터 실행: ts-loader(타입 검사·TS→ES2015) → babel-loader(@babel/preset-env로 ES5 다운컴파일 + core-js 폴리필 주입)
+        use: ['babel-loader', 'ts-loader'],
       },
       {
         // 이미지·SVG → 별도 파일로 출력, import 반환값은 URL 문자열
